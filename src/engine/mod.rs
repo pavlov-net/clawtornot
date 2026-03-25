@@ -6,10 +6,11 @@ use sqlx::SqlitePool;
 use std::time::Duration;
 
 pub fn spawn_background_tasks(pool: SqlitePool, broadcaster: Broadcaster) {
-    // Matchmaker: every 15 minutes
     let mm_pool = pool.clone();
     let mm_bc = broadcaster.clone();
     tokio::spawn(async move {
+        // Run once immediately, then every 15 minutes
+        matchmaker::run_matchmaker(&mm_pool, &mm_bc).await;
         let mut interval = tokio::time::interval(Duration::from_secs(15 * 60));
         loop {
             interval.tick().await;
@@ -17,7 +18,6 @@ pub fn spawn_background_tasks(pool: SqlitePool, broadcaster: Broadcaster) {
         }
     });
 
-    // Resolver: every 5 minutes
     let res_pool = pool.clone();
     let res_bc = broadcaster.clone();
     tokio::spawn(async move {
