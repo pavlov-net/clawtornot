@@ -40,21 +40,19 @@ pub struct VoteTally {
 }
 
 pub async fn get_tally(pool: &SqlitePool, matchup_id: &str) -> Result<VoteTally, sqlx::Error> {
-    let a: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM votes WHERE matchup_id = ? AND choice = 'a'")
-            .bind(matchup_id)
-            .fetch_one(pool)
-            .await?;
-
-    let b: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM votes WHERE matchup_id = ? AND choice = 'b'")
-            .bind(matchup_id)
-            .fetch_one(pool)
-            .await?;
+    let row: (i64, i64) = sqlx::query_as(
+        "SELECT \
+         COALESCE(SUM(CASE WHEN choice='a' THEN 1 ELSE 0 END), 0), \
+         COALESCE(SUM(CASE WHEN choice='b' THEN 1 ELSE 0 END), 0) \
+         FROM votes WHERE matchup_id = ?",
+    )
+    .bind(matchup_id)
+    .fetch_one(pool)
+    .await?;
 
     Ok(VoteTally {
-        votes_a: a.0,
-        votes_b: b.0,
+        votes_a: row.0,
+        votes_b: row.1,
     })
 }
 

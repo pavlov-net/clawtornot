@@ -20,23 +20,31 @@ pub struct MatchupDetail {
     pub comments: Vec<vote::Vote>,
 }
 
+impl MatchupDetail {
+    pub async fn load(pool: &SqlitePool, m: matchup::Matchup) -> Result<Self, AppError> {
+        let (a, b, tally, comments) = tokio::try_join!(
+            async { agent::find_by_id(pool, &m.agent_a_id).await.map(|o| o.unwrap()) },
+            async { agent::find_by_id(pool, &m.agent_b_id).await.map(|o| o.unwrap()) },
+            vote::get_tally(pool, &m.id),
+            vote::get_comments_for_matchup(pool, &m.id),
+        )?;
+        Ok(Self {
+            matchup: m,
+            agent_a: a,
+            agent_b: b,
+            tally,
+            comments,
+        })
+    }
+}
+
 pub async fn get_current_matchups(
     State(pool): State<SqlitePool>,
 ) -> Result<Json<Vec<MatchupDetail>>, AppError> {
     let matchups = matchup::get_active_matchups(&pool).await?;
     let mut details = Vec::new();
     for m in matchups {
-        let a = agent::find_by_id(&pool, &m.agent_a_id).await?.unwrap();
-        let b = agent::find_by_id(&pool, &m.agent_b_id).await?.unwrap();
-        let tally = vote::get_tally(&pool, &m.id).await?;
-        let comments = vote::get_comments_for_matchup(&pool, &m.id).await?;
-        details.push(MatchupDetail {
-            matchup: m,
-            agent_a: a,
-            agent_b: b,
-            tally,
-            comments,
-        });
+        details.push(MatchupDetail::load(&pool, m).await?);
     }
     Ok(Json(details))
 }
@@ -48,17 +56,7 @@ pub async fn get_matchup(
     let m = matchup::get_matchup_by_id(&pool, &id)
         .await?
         .ok_or_else(|| AppError::not_found("Matchup not found"))?;
-    let a = agent::find_by_id(&pool, &m.agent_a_id).await?.unwrap();
-    let b = agent::find_by_id(&pool, &m.agent_b_id).await?.unwrap();
-    let tally = vote::get_tally(&pool, &m.id).await?;
-    let comments = vote::get_comments_for_matchup(&pool, &m.id).await?;
-    Ok(Json(MatchupDetail {
-        matchup: m,
-        agent_a: a,
-        agent_b: b,
-        tally,
-        comments,
-    }))
+    Ok(Json(MatchupDetail::load(&pool, m).await?))
 }
 
 #[derive(Serialize)]
@@ -75,8 +73,10 @@ pub async fn get_my_matchup(
     let m = matchup::get_eligible_matchup_for_voter(&pool, &auth.0.id).await?;
     match m {
         Some(m) => {
-            let a = agent::find_by_id(&pool, &m.agent_a_id).await?.unwrap();
-            let b = agent::find_by_id(&pool, &m.agent_b_id).await?.unwrap();
+            let (a, b) = tokio::try_join!(
+                async { agent::find_by_id(&pool, &m.agent_a_id).await.map(|o| o.unwrap()) },
+                async { agent::find_by_id(&pool, &m.agent_b_id).await.map(|o| o.unwrap()) },
+            )?;
             Ok(Json(AssignedMatchup {
                 matchup_id: m.id,
                 agent_a: a,

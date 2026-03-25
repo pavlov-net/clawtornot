@@ -21,52 +21,49 @@ pub fn validate_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn validate_portrait(portrait: &str) -> Result<(), String> {
-    let lines: Vec<&str> = portrait.split('\n').collect();
+fn validate_grid(
+    data: &str,
+    label: &str,
+    byte_check: impl Fn(u8) -> bool,
+    error_hint: &str,
+) -> Result<(), String> {
+    let lines: Vec<&str> = data.split('\n').collect();
     if lines.len() != PORTRAIT_ROWS {
         return Err(format!(
-            "Portrait must be exactly {PORTRAIT_ROWS} rows, got {}",
+            "{label} must be exactly {PORTRAIT_ROWS} rows, got {}",
             lines.len()
         ));
     }
     for (i, line) in lines.iter().enumerate() {
         if line.len() != PORTRAIT_COLS {
             return Err(format!(
-                "Portrait row {i} must be exactly {PORTRAIT_COLS} chars, got {}",
+                "{label} row {i} must be exactly {PORTRAIT_COLS} chars, got {}",
                 line.len()
             ));
         }
-        if !line.bytes().all(|b| (0x20..=0x7E).contains(&b)) {
-            return Err(format!(
-                "Portrait row {i} contains non-printable characters"
-            ));
+        if !line.bytes().all(&byte_check) {
+            return Err(format!("{label} row {i} {error_hint}"));
         }
     }
     Ok(())
 }
 
+pub fn validate_portrait(portrait: &str) -> Result<(), String> {
+    validate_grid(
+        portrait,
+        "Portrait",
+        |b| (0x20..=0x7E).contains(&b),
+        "contains non-printable characters",
+    )
+}
+
 pub fn validate_colormap(colormap: &str) -> Result<(), String> {
-    let lines: Vec<&str> = colormap.split('\n').collect();
-    if lines.len() != PORTRAIT_ROWS {
-        return Err(format!(
-            "Colormap must be exactly {PORTRAIT_ROWS} rows, got {}",
-            lines.len()
-        ));
-    }
-    for (i, line) in lines.iter().enumerate() {
-        if line.len() != PORTRAIT_COLS {
-            return Err(format!(
-                "Colormap row {i} must be exactly {PORTRAIT_COLS} chars, got {}",
-                line.len()
-            ));
-        }
-        if !line.bytes().all(|b| VALID_COLORS.contains(&b)) {
-            return Err(format!(
-                "Colormap row {i} contains invalid color codes. Allowed: . R G B C M Y W K O"
-            ));
-        }
-    }
-    Ok(())
+    validate_grid(
+        colormap,
+        "Colormap",
+        |b| VALID_COLORS.contains(&b),
+        "contains invalid color codes. Allowed: . R G B C M Y W K O",
+    )
 }
 
 pub fn validate_tagline(tagline: &str) -> Result<(), String> {

@@ -5,10 +5,7 @@
 {% when Some with (m) %}
 <div class="matchup-container">
     <div class="agent-card">
-        <div>
-            {% if agent_a_rank > 0 && agent_a_rank <= 10 %}<span class="badge badge-rank">#{{ agent_a_rank }}</span>{% endif %}
-            <span class="name">{{ m.agent_a.name }}</span>
-        </div>
+        <div><span class="name">{{ m.agent_a.name }}</span></div>
         <p class="tagline">{{ m.agent_a.tagline }}</p>
         <div class="portrait-frame">{{ agent_a_svg|safe }}</div>
         <div class="stats-grid">
@@ -20,10 +17,7 @@
     </div>
     <div class="vs">VS</div>
     <div class="agent-card">
-        <div>
-            {% if agent_b_rank > 0 && agent_b_rank <= 10 %}<span class="badge badge-rank">#{{ agent_b_rank }}</span>{% endif %}
-            <span class="name">{{ m.agent_b.name }}</span>
-        </div>
+        <div><span class="name">{{ m.agent_b.name }}</span></div>
         <p class="tagline">{{ m.agent_b.tagline }}</p>
         <div class="portrait-frame">{{ agent_b_svg|safe }}</div>
         <div class="stats-grid">

@@ -14,18 +14,17 @@ pub struct Matchup {
     pub resolved_at: Option<String>,
 }
 
+fn normalize_pair<'a>(a: &'a str, b: &'a str) -> (&'a str, &'a str) {
+    if a < b { (a, b) } else { (b, a) }
+}
+
 pub async fn create_matchup(
     pool: &SqlitePool,
     agent_a_id: &str,
     agent_b_id: &str,
 ) -> Result<String, sqlx::Error> {
     let id = Uuid::new_v4().to_string();
-    // Normalize ordering: agent_a_id < agent_b_id
-    let (a, b) = if agent_a_id < agent_b_id {
-        (agent_a_id, agent_b_id)
-    } else {
-        (agent_b_id, agent_a_id)
-    };
+    let (a, b) = normalize_pair(agent_a_id, agent_b_id);
 
     sqlx::query(
         "INSERT INTO matchups (id, agent_a_id, agent_b_id, expires_at)
@@ -115,11 +114,7 @@ pub async fn recent_pair_exists(
     agent_a_id: &str,
     agent_b_id: &str,
 ) -> Result<bool, sqlx::Error> {
-    let (a, b) = if agent_a_id < agent_b_id {
-        (agent_a_id, agent_b_id)
-    } else {
-        (agent_b_id, agent_a_id)
-    };
+    let (a, b) = normalize_pair(agent_a_id, agent_b_id);
     let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM matchups
          WHERE agent_a_id = ? AND agent_b_id = ?

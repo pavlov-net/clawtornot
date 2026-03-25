@@ -1,14 +1,12 @@
 use axum::{
     extract::{Request, State},
-    http::HeaderValue,
     middleware::Next,
-    response::{IntoResponse, Response},
-    Json,
+    response::Response,
 };
 use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 
-use crate::api::rate_limit::RateLimiter;
+use crate::api::rate_limit::{self, RateLimiter};
 use crate::error::AppError;
 use crate::models::agent;
 
@@ -38,19 +36,9 @@ pub async fn auth_middleware(
         .await?
         .ok_or_else(AppError::unauthorized)?;
 
-    // Check general rate limit
     if let Some(limiter) = req.extensions().get::<RateLimiter>() {
         if let Err(retry_after) = limiter.check_general(&hash).await {
-            let mut resp = (
-                axum::http::StatusCode::TOO_MANY_REQUESTS,
-                Json(serde_json::json!({ "error": "Rate limit exceeded" })),
-            )
-                .into_response();
-            resp.headers_mut().insert(
-                "retry-after",
-                HeaderValue::from_str(&retry_after.to_string()).unwrap(),
-            );
-            return Ok(resp);
+            return Ok(rate_limit::rate_limit_response(retry_after, "Rate limit exceeded"));
         }
     }
 

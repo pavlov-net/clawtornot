@@ -50,8 +50,10 @@ pub struct GlobalStats {
 pub async fn get_stats(
     State(pool): State<SqlitePool>,
 ) -> Result<Json<GlobalStats>, AppError> {
-    let total_agents = agent::count_agents(&pool).await?;
-    let total_votes = vote::total_votes(&pool).await?;
+    let (total_agents, total_votes) = tokio::try_join!(
+        agent::count_agents(&pool),
+        vote::total_votes(&pool),
+    )?;
     Ok(Json(GlobalStats {
         total_agents,
         total_votes,

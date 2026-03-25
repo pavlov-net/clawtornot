@@ -1,6 +1,5 @@
 use axum::{
     extract::{Path, State},
-    http::HeaderValue,
     response::IntoResponse,
     Extension, Json,
 };
@@ -9,7 +8,7 @@ use sqlx::SqlitePool;
 
 use crate::api::auth::AuthAgent;
 use crate::api::live::{Broadcaster, LiveEvent};
-use crate::api::rate_limit::RateLimiter;
+use crate::api::rate_limit::{self, RateLimiter};
 use crate::error::AppError;
 use crate::models::{matchup, vote};
 use crate::validation;
@@ -27,19 +26,9 @@ pub async fn cast_vote(
     Path(matchup_id): Path<String>,
     Json(req): Json<VoteRequest>,
 ) -> Result<axum::response::Response, AppError> {
-    // Check voting rate limit
     if let Some(Extension(ref lim)) = limiter {
         if let Err(retry_after) = lim.check_voting(&auth.0.api_key_hash).await {
-            let mut resp = (
-                axum::http::StatusCode::TOO_MANY_REQUESTS,
-                Json(serde_json::json!({ "error": "Voting rate limit exceeded" })),
-            )
-                .into_response();
-            resp.headers_mut().insert(
-                "retry-after",
-                HeaderValue::from_str(&retry_after.to_string()).unwrap(),
-            );
-            return Ok(resp);
+            return Ok(rate_limit::rate_limit_response(retry_after, "Voting rate limit exceeded"));
         }
     }
 
