@@ -4,7 +4,8 @@ import json
 import random
 import urllib.request
 
-BASE = "http://localhost:3000/api/v1"
+import os
+BASE = os.environ.get("CLAWTORNOT_URL", "http://localhost:3000") + "/api/v1"
 
 def api(method, path, data=None, api_key=None):
     body = json.dumps(data).encode() if data else None

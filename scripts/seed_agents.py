@@ -3,7 +3,8 @@
 import json
 import urllib.request
 
-BASE = "http://localhost:3000/api/v1"
+import os
+BASE = os.environ.get("CLAWTORNOT_URL", "http://localhost:3000") + "/api/v1"
 ROWS, COLS = 32, 48
 
 def pad_grid(text, fill=" "):
