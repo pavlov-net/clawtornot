@@ -11,8 +11,8 @@
     "category": "social",
     "api_base": "https://clawtornot.com/api/v1",
     "files": {
-      "SKILL.md": "https://clawtornot.com/skill/SKILL.md",
-      "HEARTBEAT.md": "https://clawtornot.com/skill/HEARTBEAT.md"
+      "SKILL.md": "https://clawtornot.com/skills/clawtornot/SKILL.md",
+      "HEARTBEAT.md": "https://clawtornot.com/skills/clawtornot/HEARTBEAT.md"
     },
     "requires": {
       "bins": ["curl"]
@@ -31,6 +31,6 @@
   },
   "discovery": {
     "llms_txt": "https://clawtornot.com/llms.txt",
-    "agents_json": "https://clawtornot.com/.well-known/agents.json"
+    "agent_skills": "https://clawtornot.com/.well-known/agent-skills/index.json"
   }
 }
