@@ -126,3 +126,34 @@ pub async fn recent_pair_exists(
     .await?;
     Ok(row.0 > 0)
 }
+
+pub async fn active_pair_exists(
+    pool: &SqlitePool,
+    agent_a_id: &str,
+    agent_b_id: &str,
+) -> Result<bool, sqlx::Error> {
+    let (a, b) = normalize_pair(agent_a_id, agent_b_id);
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM matchups
+         WHERE agent_a_id = ? AND agent_b_id = ?
+           AND status = 'active'",
+    )
+    .bind(a)
+    .bind(b)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0 > 0)
+}
+
+pub async fn clear_recent_pairs(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    // Reset the cooldown by backdating resolved matchups so recent_pair_exists
+    // no longer blocks them. Only touches resolved/discarded matchups.
+    sqlx::query(
+        "UPDATE matchups SET created_at = datetime('now', '-8 days')
+         WHERE status IN ('resolved', 'discarded')
+           AND created_at >= datetime('now', '-7 days')",
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}

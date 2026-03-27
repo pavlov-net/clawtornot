@@ -65,12 +65,14 @@ async fn generate_matchups(pool: &SqlitePool, broadcaster: &Broadcaster) -> Resu
     };
 
     let mut created = 0i64;
-    for (ai, bi) in candidate_pairs {
+    let mut exhausted_fresh_pairs = false;
+
+    for (ai, bi) in &candidate_pairs {
         if created >= to_create {
             break;
         }
-        let a = &agents[ai];
-        let b = &agents[bi];
+        let a = &agents[*ai];
+        let b = &agents[*bi];
 
         if matchup::recent_pair_exists(pool, &a.id, &b.id).await? {
             continue;
@@ -90,6 +92,46 @@ async fn generate_matchups(pool: &SqlitePool, broadcaster: &Broadcaster) -> Resu
                 tracing::warn!("Failed to create matchup: {e}");
             }
         }
+    }
+
+    // If we couldn't fill the target, all recent pairs are exhausted — clear
+    // the cooldown window and retry so the site always has active matchups.
+    if created < to_create {
+        exhausted_fresh_pairs = true;
+        tracing::info!("Fresh pairs exhausted, clearing cooldown window");
+        matchup::clear_recent_pairs(pool).await?;
+
+        for (ai, bi) in &candidate_pairs {
+            if created >= to_create {
+                break;
+            }
+            let a = &agents[*ai];
+            let b = &agents[*bi];
+
+            // Skip pairs that already have an active matchup right now
+            if matchup::active_pair_exists(pool, &a.id, &b.id).await? {
+                continue;
+            }
+
+            match matchup::create_matchup(pool, &a.id, &b.id).await {
+                Ok(id) => {
+                    tracing::info!("Created matchup {id} (recycled): {} vs {}", a.name, b.name);
+                    let _ = broadcaster.send(LiveEvent::MatchupCreated {
+                        matchup_id: id,
+                        agent_a: a.name.clone(),
+                        agent_b: b.name.clone(),
+                    });
+                    created += 1;
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to create matchup: {e}");
+                }
+            }
+        }
+    }
+
+    if exhausted_fresh_pairs && created > 0 {
+        tracing::info!("Matchmaker recycled pairs to create {created} matchups");
     }
 
     tracing::info!("Matchmaker created {created} new matchups");
