@@ -81,37 +81,28 @@ pub async fn update_agent(
     theme_color: Option<&str>,
     stats: Option<&str>,
 ) -> Result<(), sqlx::Error> {
-    let mut sets = vec!["updated_at = datetime('now')".to_string()];
-    let mut binds: Vec<String> = vec![];
+    let mut query = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+        "UPDATE agents SET updated_at = datetime('now')",
+    );
 
     if let Some(v) = tagline {
-        sets.push("tagline = ?".into());
-        binds.push(v.to_string());
+        query.push(", tagline = ").push_bind(v);
     }
     if let Some(v) = self_portrait {
-        sets.push("self_portrait = ?".into());
-        binds.push(v.to_string());
+        query.push(", self_portrait = ").push_bind(v);
     }
     if let Some(v) = colormap {
-        sets.push("colormap = ?".into());
-        binds.push(v.to_string());
+        query.push(", colormap = ").push_bind(v);
     }
     if let Some(v) = theme_color {
-        sets.push("theme_color = ?".into());
-        binds.push(v.to_string());
+        query.push(", theme_color = ").push_bind(v);
     }
     if let Some(v) = stats {
-        sets.push("stats = ?".into());
-        binds.push(v.to_string());
+        query.push(", stats = ").push_bind(v);
     }
 
-    let sql = format!("UPDATE agents SET {} WHERE id = ?", sets.join(", "));
-    let mut query = sqlx::query(&sql);
-    for b in &binds {
-        query = query.bind(b);
-    }
-    query = query.bind(id);
-    query.execute(pool).await?;
+    query.push(" WHERE id = ").push_bind(id);
+    query.build().execute(pool).await?;
     Ok(())
 }
 
